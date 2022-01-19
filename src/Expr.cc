@@ -23,6 +23,8 @@
 #include "zeek/module_util.h"
 #include "zeek/script_opt/ExprOptInfo.h"
 
+#include "Type.h"
+
 namespace zeek::detail
 	{
 
@@ -1219,9 +1221,6 @@ void BinaryExpr::PromoteOps(TypeTag t)
 	if ( is_vec2 )
 		bt2 = op2->GetType()->AsVectorType()->Yield()->Tag();
 
-	if ( (is_vec1 || is_vec2) && ! (is_vec1 && is_vec2) )
-		reporter->Warning("mixing vector and scalar operands is deprecated");
-
 	if ( bt1 != t )
 		op1 = make_intrusive<ArithCoerceExpr>(op1, t);
 	if ( bt2 != t )
@@ -1247,6 +1246,16 @@ void BinaryExpr::PromoteForInterval(ExprPtr& op)
 
 	if ( op->GetType()->Tag() != TYPE_DOUBLE )
 		op = make_intrusive<ArithCoerceExpr>(op, TYPE_DOUBLE);
+	}
+
+bool BinaryExpr::IsScalarVecOp()
+	{
+	const bool is_vec1 = IsAggr(op1->GetType()->Tag()) || is_list(op1);
+	const bool is_vec2 = IsAggr(op2->GetType()->Tag()) || is_list(op2);
+	const bool either_vec = is_vec1 || is_vec2;
+	const bool both_vec = is_vec1 && is_vec2;
+
+	return either_vec && ! both_vec;
 	}
 
 CloneExpr::CloneExpr(ExprPtr arg_op) : UnaryExpr(EXPR_CLONE, std::move(arg_op))
@@ -1520,6 +1529,14 @@ AddExpr::AddExpr(ExprPtr arg_op1, ExprPtr arg_op2)
 	else
 		ExprError("requires arithmetic operands");
 
+	// Warn about scalar vector operations after we error about
+	// requiring arithmetic operands.
+	if ( ! IsError() && IsScalarVecOp() )
+		{
+		reporter->Warning("mixing vector and scalar operands is depreciated (%s) (%s)",
+		                  type_name(op1->GetType()->Tag()), type_name(op2->GetType()->Tag()));
+		}
+
 	if ( base_result_type )
 		{
 		if ( is_vector(op1) || is_vector(op2) )
@@ -1652,6 +1669,12 @@ SubExpr::SubExpr(ExprPtr arg_op1, ExprPtr arg_op2)
 	else
 		ExprError("requires arithmetic operands");
 
+	if ( ! IsError() && IsScalarVecOp() )
+		{
+		reporter->Warning("mixing vector and scalar operands is depreciated (%s) (%s)",
+		                  type_name(op1->GetType()->Tag()), type_name(op2->GetType()->Tag()));
+		}
+
 	if ( base_result_type )
 		{
 		if ( is_vector(op1) || is_vector(op2) )
@@ -1728,6 +1751,12 @@ TimesExpr::TimesExpr(ExprPtr arg_op1, ExprPtr arg_op2)
 		PromoteType(max_type(bt1, bt2), is_vector(op1) || is_vector(op2));
 	else
 		ExprError("requires arithmetic operands");
+
+	if ( ! IsError() && IsScalarVecOp() )
+		{
+		reporter->Warning("mixing vector and scalar operands is depreciated (%s) (%s)",
+		                  type_name(op1->GetType()->Tag()), type_name(op2->GetType()->Tag()));
+		}
 	}
 
 void TimesExpr::Canonicize()
@@ -1776,6 +1805,12 @@ DivideExpr::DivideExpr(ExprPtr arg_op1, ExprPtr arg_op2)
 
 	else
 		ExprError("requires arithmetic operands");
+
+	if ( ! IsError() && IsScalarVecOp() )
+		{
+		reporter->Warning("mixing vector and scalar operands is depreciated (%s) (%s)",
+		                  type_name(op1->GetType()->Tag()), type_name(op2->GetType()->Tag()));
+		}
 	}
 
 ValPtr DivideExpr::AddrFold(Val* v1, Val* v2) const
@@ -1823,6 +1858,12 @@ ModExpr::ModExpr(ExprPtr arg_op1, ExprPtr arg_op2)
 		PromoteType(max_type(bt1, bt2), is_vector(op1) || is_vector(op2));
 	else
 		ExprError("requires integral operands");
+
+	if ( ! IsError() && IsScalarVecOp() )
+		{
+		reporter->Warning("mixing vector and scalar operands is depreciated (%s) (%s)",
+		                  type_name(op1->GetType()->Tag()), type_name(op2->GetType()->Tag()));
+		}
 	}
 
 BoolExpr::BoolExpr(BroExprTag arg_tag, ExprPtr arg_op1, ExprPtr arg_op2)
@@ -2086,6 +2127,12 @@ EqExpr::EqExpr(BroExprTag arg_tag, ExprPtr arg_op1, ExprPtr arg_op2)
 
 	else
 		ExprError("type clash in comparison");
+
+	if ( ! IsError() && IsScalarVecOp() )
+		{
+		reporter->Warning("mixing vector and scalar operands is depreciated (%s) (%s)",
+		                  type_name(op1->GetType()->Tag()), type_name(op2->GetType()->Tag()));
+		}
 	}
 
 void EqExpr::Canonicize()
@@ -2166,6 +2213,11 @@ RelExpr::RelExpr(BroExprTag arg_tag, ExprPtr arg_op1, ExprPtr arg_op2)
 	else if ( bt1 != TYPE_TIME && bt1 != TYPE_INTERVAL && bt1 != TYPE_PORT && bt1 != TYPE_ADDR &&
 	          bt1 != TYPE_STRING )
 		ExprError("illegal comparison");
+
+	if ( ! IsError() && IsScalarVecOp() )
+		{
+		reporter->Warning("mixing vector and scalar operands is deprecated");
+		}
 	}
 
 void RelExpr::Canonicize()

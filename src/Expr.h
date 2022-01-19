@@ -622,6 +622,11 @@ protected:
 
 	void ExprDescribe(ODesc* d) const override;
 
+	// Reports on if this BinaryExpr involves a scalar and
+	// vector type. Used to warn about depreciated scalar vector
+	// operations like `[1, 2, 3] == 1`.
+	bool IsScalarVecOp();
+
 	ExprPtr op1;
 	ExprPtr op2;
 	};
@@ -1799,6 +1804,16 @@ inline bool is_vector(Expr* e)
 inline bool is_vector(const ExprPtr& e)
 	{
 	return is_vector(e.get());
+	}
+
+// True if the given Expr* has a list type
+inline bool is_list(Expr* e)
+	{
+	return e->GetType()->Tag() == TYPE_LIST;
+	}
+inline bool is_list(const ExprPtr& e)
+	{
+	return is_list(e.get());
 	}
 
 	} // namespace detail

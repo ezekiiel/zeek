@@ -623,9 +623,12 @@ protected:
 	void ExprDescribe(ODesc* d) const override;
 
 	// Reports on if this BinaryExpr involves a scalar and
-	// vector type. Used to warn about depreciated scalar vector
-	// operations like `[1, 2, 3] == 1`.
-	bool IsScalarVecOp();
+	// aggregate type (vec, list, table, record).
+	bool IsScalarAggregateOp() const;
+
+	// Warns about depreciated scalar vector operations like
+	// `[1, 2, 3] == 1` or `["a", "b", "c"] + "a"`.
+	void CheckScalarAggOp() const;
 
 	ExprPtr op1;
 	ExprPtr op2;
